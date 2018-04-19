@@ -1,0 +1,534 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "adminUsername": {
+      "type": "String",
+      "metadata": {
+        "description": "Admin username for the Virtual Machines"
+      }
+    },
+    "vm01Password": {
+      "type": "SecureString",
+      "metadata": {
+        "description": "VM 1 (ldap) Admin password"
+      }
+    },
+    "vm03Password": {
+      "type": "SecureString",
+      "metadata": {
+        "description": "VM 3 (tomee) admin passsword"
+      }
+    },
+    "imagePublisher": {
+      "defaultValue": "OpenLogic",
+      "type": "String",
+      "metadata": {
+        "description": " Publisher for the OS image, the default is OpenLogic"
+      }
+    },
+    "imageOffer": {
+      "defaultValue": "CentOS",
+      "type": "String",
+      "metadata": {
+        "description": "The name of the image offer. The default is CentOS"
+      }
+    },
+    "imageSKU": {
+      "defaultValue": "7.3",
+      "type": "String",
+      "metadata": {
+        "description": "Version of the image. The default is 7.3 Latest"
+      }
+    },
+    "vmSize": {
+      "defaultValue": "Standard_DS1",
+      "type": "String",
+      "metadata": {
+        "description": "VM Size"
+      }
+    },
+    "vmLocation": {
+      "type": "string"
+    },
+    "sqlserverName":{
+      "type": "string"
+    },
+    "sqlsAdminLogin": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sqlsAdminLoginPassword": {
+      "type": "securestring"
+    },
+    "sqlsLocation": {
+      "type": "string"
+    },
+    "databaseName": {
+      "type": "string"
+    },
+    "databaseCollation": {
+      "type": "string"
+    },
+    "databaseEdition": {
+      "type": "string"
+    },
+    "dbRequestedServiceObjectiveName": {
+      "type": "string",
+      "metadata": {
+        "description": "Describes the performance level for Edition"
+      }
+    },
+    "diagnosticsStorageAccountName": {
+      "type": "string",
+      "metadata": {
+        "description": "Unique DNS Name for the Storage Account where the Virtual Machine diagnostic information will be placed."
+      }
+    },
+    "storageAccountLocation": {
+      "type": "string"
+    },
+    "diagnosticsStorageAccountType": {
+      "type": "string"
+    }
+  },
+  "variables": {
+    "vnetID": "[resourceId('Microsoft.Network/virtualNetworks',variables('virtualNetworkName'))]",
+    "subnet1Ref": "[concat(variables('vnetID'),'/subnets/',variables('subnet1Name'))]",
+    "vmName1": "slheobject01vm",
+    "vmName3": "slheobject03vm",
+    "publicIPAddressType": "Static",
+    "vmStorageAccountContainerName": "vhds",
+    "virtualNetworkName": "[concat(variables('resourceName'), 'eobject-vnet')]",
+    "networkSecurityGroupName1": "[concat(variables('resourceName'),'ldap-nsg')]",
+    "networkSecurityGroupName3": "[concat(variables('resourceName'),'tomee-nsg')]",
+    "addressPrefix": "172.16.5.0/24",
+    "subnet1Name": "default",
+    "subnet1Prefix": "172.16.5.0/24",
+    "dnsName": "[variables('subnet1Name')]",
+    "resourceName": "s-lhEobject-1-0-usa-",
+    "nicName1": "[concat(variables('resourceName'),'ldap-nic')]",
+    "nicName3": "[concat(variables('resourceName'),'tomee-nic')]",
+    "publicIPAddressName1": "[concat(variables('resourceName'),'ldap-pip')]",
+    "publicIPAddressName3": "[concat(variables('resourceName'),'tomee-pip')]",
+    "osDiskName1": "[concat(variables('resourceName'),'ldap-dsk')]",
+    "osDiskName3": "[concat(variables('resourceName'),'tomee-dsk')]",
+    "product": "LabHub",
+    "productComponent": "EObject",
+    "productComponentVersion": "1.0",
+    "environment": "Staging",
+    "originator": "Sogeti"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[concat(variables('publicIPAddressName1'))]",
+      "apiVersion": "2017-03-01",
+      "location": "[parameters('vmLocation')]",
+      "tags": {
+        "Product": "[variables('product')]",
+        "Product Component": "[variables('productComponent')]",
+        "Product Component Version": "[variables('productComponentVersion')]",
+        "Environment": "[variables('environment')]",
+        "Purpose": "public IP associated with ldap vm",
+        "Originator": "[variables('originator')]"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "[variables('publicIPAddressType')]"
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "name": "[variables('virtualNetworkName')]",
+      "apiVersion": "2017-03-01",
+      "location": "[parameters('vmLocation')]",
+      "tags": {
+        "Product": "[variables('product')]",
+        "Product Component": "[variables('productComponent')]",
+        "Product Component Version": "[variables('productComponentVersion')]",
+        "Environment": "[variables('environment')]",
+        "Purpose": "Vnet for Eobject",
+        "Originator": "[variables('originator')]"
+      },
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[variables('addressPrefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('subnet1Name')]",
+            "properties": {
+              "addressPrefix": "[variables('subnet1Prefix')]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "2017-03-01",
+      "dependsOn": [
+        "[concat('Microsoft.Network/publicIPAddresses/', variables('publicIPAddressName1'))]",
+        "[concat('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]",
+        "[concat('Microsoft.Network/networkSecurityGroups/', variables('networkSecurityGroupName1'))]"
+      ],
+      "location": "[parameters('vmLocation')]",
+      "name": "[concat(variables('nicName1'))]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPAddressName1'))]"
+              },
+              "subnet": {
+                "id": "[variables('subnet1Ref')]"
+              }
+            }
+          }
+        ],
+        "networkSecurityGroup": {
+          "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('networkSecurityGroupName1'))]"
+        }
+      },
+      "tags": {
+        "Product": "[variables('product')]",
+        "Product Component": "[variables('productComponent')]",
+        "Product Component Version": "[variables('productComponentVersion')]",
+        "Environment": "[variables('environment')]",
+        "Purpose": "Network Interface for ldap vm",
+        "Originator": "[variables('originator')]"
+      },
+      "type": "Microsoft.Network/networkInterfaces"
+    },
+    {
+      "name": "[variables('networkSecurityGroupName1')]",
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2017-06-01",
+      "location": "[parameters('vmLocation')]",
+      "tags": {
+        "Product": "[variables('product')]",
+        "Product Component": "[variables('productComponent')]",
+        "Product Component Version": "[variables('productComponentVersion')]",
+        "Environment": "[variables('environment')]",
+        "Purpose": "Network security group for ldap server",
+        "Originator": "[variables('originator')]"
+      },
+      "properties": {
+        "securityRules": [
+          {
+            "name": "default-allow-ssh",
+            "properties": {
+              "priority": 1000,
+              "protocol": "TCP",
+              "access": "Allow",
+              "direction": "Inbound",
+              "sourceAddressPrefix": "*",
+              "sourcePortRange": "*",
+              "destinationAddressPrefix": "*",
+              "destinationPortRange": "22"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[concat(variables('vmName1'))]",
+      "apiVersion": "2016-04-30-preview",
+      "location": "[parameters('vmLocation')]",
+      "tags": {
+        "Product": "[variables('product')]",
+        "Product Component": "[variables('productComponent')]",
+        "Product Component Version": "[variables('productComponentVersion')]",
+        "Environment": "[variables('environment')]",
+        "Purpose": "Linux VM running LDAP for eObject accounts",
+        "Originator": "[variables('originator')]"
+      },
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[parameters('vmSize')]"
+        },
+        "osProfile": {
+          "computerName": "[concat(variables('vmName1'))]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('vm01Password')]"
+        },
+        "storageProfile": {
+          "osDisk": {
+            "name": "[variables('osDiskName1')]",
+            "createOption": "FromImage"
+          },
+          "imageReference": {
+            "publisher": "[parameters('imagePublisher')]",
+            "offer": "[parameters('imageOffer')]",
+            "sku": "[parameters('imageSKU')]",
+            "version": "latest"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('nicName1')))]"
+            }
+          ]
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": "true",
+            "storageUri": "[concat('http://',parameters('diagnosticsStorageAccountName'),'.blob.core.windows.net')]"
+          }
+        }        
+      },
+      "dependsOn": [
+        "[concat('Microsoft.Network/networkInterfaces/', variables('nicName1'))]",
+        "[concat('Microsoft.Storage/storageAccounts/', parameters('diagnosticsStorageAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[concat(variables('publicIPAddressName3'))]",
+      "apiVersion": "2017-03-01",
+      "location": "[parameters('vmLocation')]",
+      "tags": {
+        "Product": "[variables('product')]",
+        "Product Component": "[variables('productComponent')]",
+        "Product Component Version": "[variables('productComponentVersion')]",
+        "Environment": "[variables('environment')]",
+        "Purpose": "public IP associated with tomEE vm",
+        "Originator": "[variables('originator')]"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "[variables('publicIPAddressType')]"
+      }
+    },
+    {
+      "apiVersion": "2017-03-01",
+      "dependsOn": [
+        "[concat('Microsoft.Network/publicIPAddresses/', variables('publicIPAddressName3'))]",
+        "[concat('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]",
+        "[concat('Microsoft.Network/networkSecurityGroups/', variables('networkSecurityGroupName3'))]"
+      ],
+      "location": "[parameters('vmLocation')]",
+      "name": "[concat(variables('nicName3'))]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPAddressName3'))]"
+              },
+              "subnet": {
+                "id": "[variables('subnet1Ref')]"
+              }
+            }
+          }
+        ],
+        "networkSecurityGroup": {
+          "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('networkSecurityGroupName3'))]"
+        }
+      },
+      "tags": {
+        "Product": "[variables('product')]",
+        "Product Component": "[variables('productComponent')]",
+        "Product Component Version": "[variables('productComponentVersion')]",
+        "Environment": "[variables('environment')]",
+        "Purpose": "Network Interface for tomEE vm",
+        "Originator": "[variables('originator')]"
+      },
+      "type": "Microsoft.Network/networkInterfaces"
+    },
+    {
+      "name": "[variables('networkSecurityGroupName3')]",
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2017-06-01",
+      "location": "[parameters('vmLocation')]",
+      "tags": {
+        "Product": "[variables('product')]",
+        "Product Component": "[variables('productComponent')]",
+        "Product Component Version": "[variables('productComponentVersion')]",
+        "Environment": "[variables('environment')]",
+        "Purpose": "Network security group for tomEE server",
+        "Originator": "[variables('originator')]"
+      },
+      "properties": {
+        "securityRules": [
+          {
+            "name": "default-allow-ssh",
+            "properties": {
+              "priority": 1000,
+              "protocol": "TCP",
+              "access": "Allow",
+              "direction": "Inbound",
+              "sourceAddressPrefix": "*",
+              "sourcePortRange": "*",
+              "destinationAddressPrefix": "*",
+              "destinationPortRange": "22"
+            }
+          },
+          {
+            "name": "tomcat",
+            "properties": {
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "8080",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 500,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "http",
+            "properties": {
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "80",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 100,
+              "direction": "Inbound"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[concat(variables('vmName3'))]",
+      "apiVersion": "2016-04-30-preview",
+      "location": "[parameters('vmLocation')]",
+      "tags": {
+        "Product": "[variables('product')]",
+        "Product Component": "[variables('productComponent')]",
+        "Product Component Version": "[variables('productComponentVersion')]",
+        "Environment": "[variables('environment')]",
+        "Purpose": "Linux VM running tomEE server for eObject webapps",
+        "Originator": "[variables('originator')]"
+      },
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[parameters('vmSize')]"
+        },
+        "osProfile": {
+          "computerName": "[concat(variables('vmName3'))]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('vm03Password')]"
+        },
+        "storageProfile": {
+          "osDisk": {
+            "name": "[variables('osDiskName3')]",
+            "createOption": "FromImage"
+          },
+          "imageReference": {
+            "publisher": "[parameters('imagePublisher')]",
+            "offer": "[parameters('imageOffer')]",
+            "sku": "[parameters('imageSKU')]",
+            "version": "latest"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('nicName3')))]"
+            }
+          ]
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": "true",
+            "storageUri": "[concat('http://',parameters('diagnosticsStorageAccountName'),'.blob.core.windows.net')]"
+          }
+        }
+      },
+      "dependsOn": [
+        "[concat('Microsoft.Network/networkInterfaces/', variables('nicName3'))]",
+        "[concat('Microsoft.Storage/storageAccounts/', parameters('diagnosticsStorageAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "name": "[parameters('diagnosticsStorageAccountName')]",
+      "apiVersion": "2015-06-15",
+      "location": "[parameters('storageAccountLocation')]",
+      "tags": {
+        "Product": "[variables('product')]",
+        "Product Component": "[variables('productComponent')]",
+        "Product Component Version": "[variables('productComponentVersion')]",
+        "Environment": "[variables('environment')]",
+        "Purpose": "Diagnostic log storage for eObject VMs - currently in use",
+        "Originator": "[variables('originator')]"
+      },
+      "properties": {
+          "accountType": "[parameters('diagnosticsStorageAccountType')]"
+      }
+    },
+    {
+      "name": "[parameters('sqlserverName')]",
+      "type": "Microsoft.Sql/servers",
+      "location": "[parameters('sqlsLocation')]",
+      "apiVersion": "2014-04-01-preview",
+      "dependsOn": [ ],
+      "tags": {
+        "Product": "[variables('product')]",
+        "Product Component": "[variables('productComponent')]",
+        "Product Component Version": "[variables('productComponentVersion')]",
+        "Environment": "[variables('environment')]",
+        "Purpose": "MS SQL 2017 server instance for eObject",
+        "Originator": "[variables('originator')]"
+      },
+      "properties": {
+        "administratorLogin": "[parameters('sqlsAdminLogin')]",
+        "administratorLoginPassword": "[parameters('sqlsAdminLoginPassword')]",
+        "version": "12.0"
+      },
+      "resources": [
+        {
+          "name": "AllowAllWindowsAzureIps",
+          "type": "firewallrules",
+          "location": "[parameters('sqlsLocation')]",
+          "apiVersion": "2014-04-01-preview",
+          "dependsOn": [
+            "[resourceId('Microsoft.Sql/servers', parameters('sqlserverName'))]"
+          ],
+          "properties": {
+            "startIpAddress": "0.0.0.0",
+            "endIpAddress": "0.0.0.0"
+          }
+        },
+        {
+          "name": "[parameters('databaseName')]",
+          "type": "databases",
+          "location": "[parameters('sqlsLocation')]",
+          "apiVersion": "2014-04-01-preview",
+          "dependsOn": [
+            "[resourceId('Microsoft.Sql/servers', parameters('sqlserverName'))]"
+          ],
+          "tags": {
+            "Product": "[variables('product')]",
+            "Product Component": "[variables('productComponent')]",
+            "Product Component Version": "[variables('productComponentVersion')]",
+            "Environment": "[variables('environment')]",
+            "Purpose": "eObject SQL Database associated with SQL server instance",
+            "Originator": "[variables('originator')]"
+          },
+          "properties": {
+            "collation": "[parameters('databaseCollation')]",
+            "edition": "[parameters('databaseEdition')]",
+            "maxSizeBytes": "1073741824",
+            "requestedServiceObjectiveName": "[parameters('dbRequestedServiceObjectiveName')]"
+          }
+        }
+      ]
+    }
+  ]
+}

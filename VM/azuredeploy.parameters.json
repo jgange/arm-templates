@@ -1,0 +1,54 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "adminUsername": {
+      "value": "adminRoot"
+    },
+    "imagePublisher": {
+      "value": "OpenLogic"
+    },
+    "imageOffer": {
+      "value": "CentOS"
+    },
+    "imageSKU": {
+      "value": "7.3"
+    },
+    "vmSize": {
+      "value": "Standard_DS1"
+    },
+    "vmLocation": {
+      "value": "centralus"
+    },
+    "sqlserverName":{
+      "value": "s-lheobject-1-0-usa-eobject-sqls"
+    },
+    "sqlsAdminLogin": {
+      "value": "LabhubSysAdminUser"
+    },
+    "sqlsLocation":{
+      "value": "South Central US"
+    },    
+    "databaseName": {
+      "value": "slhEobject-1-0-usa-eobject-sqld"
+    },
+    "databaseCollation": {
+      "value": "SQL_Latin1_General_CP1_CI_AS"
+    },
+    "databaseEdition": {
+      "value": "Standard"
+    },
+    "dbRequestedServiceObjectiveName": {
+      "value": "S0"
+    },
+    "diagnosticsStorageAccountName": {
+      "value": "slheobject01sa"
+    },
+    "storageAccountLocation": {
+      "value": "centralus"
+    },
+    "diagnosticsStorageAccountType": {
+      "value": "Standard_LRS"
+    }
+  }
+}

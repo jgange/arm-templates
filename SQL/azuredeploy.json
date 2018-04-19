@@ -24,18 +24,28 @@
       "metadata": {
         "description": "Enable or disable Transparent Data Encryption (TDE) for the database."
       }
+    },
+    "sqlServerName" : {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the SQL server hosting the database"
+      }
+    },
+      "databaseName": {
+        "type": "string",
+        "metadata": {
+          "description": "Name of the SQL Database"
+      }
     }
   },
   "variables": {
-    "sqlServerName": "[concat('sqlserver', uniqueString(subscription().id, resourceGroup().id))]",
-    "databaseName": "sample-db-with-tde",
     "databaseEdition": "Basic",
     "databaseCollation": "SQL_Latin1_General_CP1_CI_AS",
     "databaseServiceObjectiveName": "Basic"
   },
   "resources": [
     {
-      "name": "[variables('sqlServerName')]",
+      "name": "[parameters('sqlServerName')]",
       "type": "Microsoft.Sql/servers",
       "apiVersion": "2014-04-01-preview",
       "location": "[resourceGroup().location]",
@@ -49,7 +59,7 @@
       },
       "resources": [
         {
-          "name": "[variables('databaseName')]",
+          "name": "[parameters('databaseName')]",
           "type": "databases",
           "apiVersion": "2015-01-01",
           "location": "[resourceGroup().location]",
@@ -62,7 +72,7 @@
             "requestedServiceObjectiveName": "[variables('databaseServiceObjectiveName')]"
           },
           "dependsOn": [
-            "[variables('sqlServerName')]"
+            "[parameters('sqlServerName')]"
           ],
           "resources": [
             {
@@ -74,7 +84,7 @@
                 "status": "[parameters('transparentDataEncryption')]"
               },
               "dependsOn": [
-                "[variables('databaseName')]"
+                "[parameters('databaseName')]"
               ]
             }
           ]
@@ -89,7 +99,7 @@
             "startIpAddress": "0.0.0.0"
           },
           "dependsOn": [
-            "[variables('sqlServerName')]"
+            "[parameters('sqlServerName')]"
           ]
         }
       ]
@@ -98,11 +108,11 @@
   "outputs": {
     "sqlServerFqdn": {
       "type": "string",
-      "value": "[reference(concat('Microsoft.Sql/servers/', variables('sqlServerName'))).fullyQualifiedDomainName]"
+      "value": "[reference(concat('Microsoft.Sql/servers/', parameters('sqlServerName'))).fullyQualifiedDomainName]"
     },
     "databaseName": {
       "type": "string",
-      "value": "[variables('databaseName')]"
+      "value": "[parameters('databaseName')]"
     }
   }
 }
